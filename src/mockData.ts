@@ -50,6 +50,13 @@ export const mockUsers: User[] = [
     name: 'Dr. Ibrahima Gueye',
     role: 'pharmacy',
     notifications: []
+  },
+  {
+    id: 'admin123',
+    email: 'admin@pharmadispo.com',
+    name: 'Dr. Ibrahima Gueye',
+    role: 'admin',
+    notifications: []
   }
 ];
 
