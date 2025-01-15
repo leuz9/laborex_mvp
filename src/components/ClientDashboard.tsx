@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Bell } from 'lucide-react';
 import SearchMedication from './SearchMedication';
 import RequestForm from './RequestForm';
 import DutyPharmacies from './DutyPharmacies';
+import RequestDetailsPopup from './RequestDetailsPopup';
 import type { Medication, MedicationRequest } from '../types';
 import { mockRequests, mockNotifications } from '../mockData';
 
@@ -19,8 +20,17 @@ export default function ClientDashboard({
   onMedicationSelect,
   onRequestSubmit
 }: Props) {
+  const [selectedRequest, setSelectedRequest] = useState<MedicationRequest | null>(null);
+
   return (
     <div>
+      {selectedRequest && (
+        <RequestDetailsPopup
+          request={selectedRequest}
+          onClose={() => setSelectedRequest(null)}
+        />
+      )}
+
       {activeTab === 'search' && (
         <>
           <SearchMedication onMedicationSelect={onMedicationSelect} />
@@ -45,7 +55,11 @@ export default function ClientDashboard({
         <div className="space-y-4">
           <h2 className="text-xl font-semibold mb-4">Mes Demandes</h2>
           {mockRequests.map(request => (
-            <div key={request.id} className="bg-white p-6 rounded-lg shadow-md">
+            <div
+              key={request.id}
+              className="bg-white p-6 rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer"
+              onClick={() => setSelectedRequest(request)}
+            >
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <span className={`

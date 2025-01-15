@@ -147,7 +147,7 @@ export const mockRequests: MedicationRequest[] = [
   {
     id: 'req1',
     userId: 'user123',
-    medications: [mockMedications[0]],
+    medications: [mockMedications[0], mockMedications[4]],
     status: 'pending',
     priority: 'high',
     createdAt: new Date().toISOString(),
@@ -160,7 +160,8 @@ export const mockRequests: MedicationRequest[] = [
     status: 'confirmed',
     priority: 'medium',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
-    location: { latitude: 14.7127, longitude: -17.4842 }
+    location: { latitude: 14.7127, longitude: -17.4842 },
+    confirmedPharmacies: ['pharm123', 'pharm124', 'pharm125']
   },
   {
     id: 'req3',
@@ -174,7 +175,7 @@ export const mockRequests: MedicationRequest[] = [
   {
     id: 'req4',
     userId: 'user125',
-    medications: [mockMedications[5]],
+    medications: [mockMedications[5], mockMedications[4]],
     status: 'preparing',
     priority: 'medium',
     createdAt: new Date(Date.now() - 259200000).toISOString(),
@@ -184,28 +185,60 @@ export const mockRequests: MedicationRequest[] = [
     id: 'req5',
     userId: 'user126',
     medications: [mockMedications[6], mockMedications[7]],
-    status: 'completed',
+    status: 'confirmed',
     priority: 'high',
     createdAt: new Date(Date.now() - 345600000).toISOString(),
-    location: { latitude: 14.6937, longitude: -17.4441 }
+    location: { latitude: 14.6937, longitude: -17.4441 },
+    confirmedPharmacies: ['pharm126', 'pharm127']
   },
   {
     id: 'req6',
     userId: 'user127',
     medications: [mockMedications[8]],
-    status: 'pending',
+    status: 'confirmed',
     priority: 'high',
     createdAt: new Date(Date.now() - 432000000).toISOString(),
-    location: { latitude: 14.7223, longitude: -17.4877 }
+    location: { latitude: 14.7223, longitude: -17.4877 },
+    confirmedPharmacies: ['pharm128', 'pharm129', 'pharm130']
   },
   {
     id: 'req7',
     userId: 'user124',
     medications: [mockMedications[9], mockMedications[10]],
-    status: 'confirmed',
+    status: 'ready',
     priority: 'medium',
     createdAt: new Date(Date.now() - 518400000).toISOString(),
-    location: { latitude: 14.7142, longitude: -17.4562 }
+    location: { latitude: 14.7142, longitude: -17.4562 },
+    confirmedPharmacies: ['pharm123']
+  },
+  {
+    id: 'req8',
+    userId: 'user125',
+    medications: [mockMedications[11]],
+    status: 'completed',
+    priority: 'high',
+    createdAt: new Date(Date.now() - 604800000).toISOString(),
+    location: { latitude: 14.7242, longitude: -17.4462 },
+    confirmedPharmacies: ['pharm124']
+  },
+  {
+    id: 'req9',
+    userId: 'user126',
+    medications: [mockMedications[12], mockMedications[13], mockMedications[14]],
+    status: 'pending',
+    priority: 'low',
+    createdAt: new Date(Date.now() - 691200000).toISOString(),
+    location: { latitude: 14.6823, longitude: -17.4477 }
+  },
+  {
+    id: 'req10',
+    userId: 'user127',
+    medications: [mockMedications[1], mockMedications[4]],
+    status: 'confirmed',
+    priority: 'medium',
+    createdAt: new Date(Date.now() - 777600000).toISOString(),
+    location: { latitude: 14.7242, longitude: -17.4462 },
+    confirmedPharmacies: ['pharm125', 'pharm126']
   }
 ];
 

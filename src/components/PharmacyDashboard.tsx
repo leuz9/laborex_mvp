@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, Package, Phone, Calendar } from 'lucide-react';
 import type { MedicationRequest, Pharmacy } from '../types';
+import RequestDetailsPopup from './RequestDetailsPopup';
 
 interface Props {
   pharmacy: Pharmacy;
@@ -34,7 +35,6 @@ export default function PharmacyDashboard({ pharmacy, requests, onConfirmAvailab
   };
 
   const handleRestockSubmit = () => {
-    // Ici, vous enverriez normalement ces informations à votre backend
     console.log('Restock date set for:', restockDate);
     setShowUnavailableModal(false);
     setRestockDate('');
@@ -42,6 +42,15 @@ export default function PharmacyDashboard({ pharmacy, requests, onConfirmAvailab
 
   return (
     <div className="max-w-4xl mx-auto p-4">
+      {/* Popup de détails */}
+      {selectedRequest && !showConfirmation && !showUnavailableModal && (
+        <RequestDetailsPopup
+          request={selectedRequest}
+          isPharmacyView={true}
+          onClose={() => setSelectedRequest(null)}
+        />
+      )}
+
       {/* Modal de Confirmation */}
       {showConfirmation && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -129,7 +138,11 @@ export default function PharmacyDashboard({ pharmacy, requests, onConfirmAvailab
 
         <div className="space-y-4">
           {filteredRequests.map(request => (
-            <div key={request.id} className="border rounded-lg p-4">
+            <div
+              key={request.id}
+              className="border rounded-lg p-4 hover:border-blue-500 transition-colors cursor-pointer"
+              onClick={() => setSelectedRequest(request)}
+            >
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <span className={`
@@ -165,16 +178,22 @@ export default function PharmacyDashboard({ pharmacy, requests, onConfirmAvailab
               )}
 
               {activeTab === 'pending' && (
-                <div className="flex space-x-2">
+                <div className="flex space-x-2 mt-4">
                   <button
-                    onClick={() => handleConfirm(request)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleConfirm(request);
+                    }}
                     className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                   >
                     <CheckCircle className="mr-2" size={16} />
                     Confirmer disponibilité
                   </button>
                   <button
-                    onClick={() => handleUnavailable(request)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUnavailable(request);
+                    }}
                     className="flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
                   >
                     <Calendar className="mr-2" size={16} />
