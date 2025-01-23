@@ -1,193 +1,127 @@
 import React, { useState } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import LoginForm from './components/auth/LoginForm';
-import SignUpForm from './components/auth/SignUpForm';
-import ForgotPasswordForm from './components/auth/ForgotPasswordForm';
-import Dashboard from './components/Dashboard';
-import LoadingSpinner from './components/LoadingSpinner';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import Sidebar from './components/Sidebar';
-import Team from './components/Team';
-import Products from './components/Products';
-import Tasks from './components/Tasks';
-import WorkloadManager from './components/WorkloadManager';
-import AIAnalytics from './components/AIAnalytics';
-import BudgetAnalytics from './components/analytics/BudgetAnalytics';
-import PerformanceMetrics from './components/analytics/PerformanceMetrics';
-import ProjectAnalytics from './components/analytics/ProjectAnalytics';
-import ResourceUtilization from './components/analytics/ResourceUtilization';
-import TeamAnalytics from './components/analytics/TeamAnalytics';
-import GamificationHub from './components/GamificationHub';
-import CareerDevelopment from './components/CareerDevelopment';
-import FeedbackSystem from './components/FeedbackSystem';
-import WellnessTracker from './components/WellnessTracker';
-import Calendar from './components/Calendar';
-import InviteTeam from './components/InviteTeam';
-import SecuritySettings from './components/settings/SecuritySettings';
-import UserSettings from './components/settings/UserSettings';
-import UserManagement from './components/settings/UserManagement';
-import NotificationsPage from './components/NotificationsPage';
+import LoginForm from './components/LoginForm';
+import RegisterForm from './components/RegisterForm';
+import AdminDashboard from './components/AdminDashboard';
+import PharmacyDashboard from './components/PharmacyDashboard';
+import ClientDashboard from './components/ClientDashboard';
+import { useAuth } from './hooks/useAuth';
+import { mockPharmacy, mockRequests } from './mockData';
 
-const App: React.FC = () => {
-  const { currentUser, userProfile, loading } = useAuth();
-  const location = useLocation();
-  const [activeTab, setActiveTab] = useState('dashboard');
+export default function App() {
+  const { user, login, logout, loading } = useAuth();
+  const [showRegister, setShowRegister] = useState(false);
+  const [selectedMedications, setSelectedMedications] = useState([]);
+  const [clientTab, setClientTab] = useState('search');
 
   if (loading) {
-    return <LoadingSpinner />;
-  }
-
-  // Pages publiques qui ne nécessitent pas la barre latérale
-  const publicPages = ['/login', '/signup', '/forgot-password'];
-  const isPublicPage = publicPages.includes(location.pathname);
-
-  if (!currentUser && !isPublicPage) {
-    return <Navigate to="/login" replace />;
-  }
-
-  if (isPublicPage) {
     return (
-      <Routes>
-        <Route path="/login" element={<LoginForm />} />
-        <Route path="/signup" element={<SignUpForm />} />
-        <Route path="/forgot-password" element={<ForgotPasswordForm />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
     );
   }
 
-  return (
-    <div className="flex h-screen bg-gray-100">
-      <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-      
-      <main className="flex-1 overflow-y-auto pl-64">
-        <div className="p-6">
-          <Routes>
-            {/* Routes principales */}
-            <Route path="/" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
-            <Route path="/team" element={
-              <ProtectedRoute>
-                <Team />
-              </ProtectedRoute>
-            } />
-            <Route path="/products" element={
-              <ProtectedRoute>
-                <Products />
-              </ProtectedRoute>
-            } />
-            <Route path="/tasks" element={
-              <ProtectedRoute>
-                <Tasks />
-              </ProtectedRoute>
-            } />
-            <Route path="/workload" element={
-              <ProtectedRoute>
-                <WorkloadManager />
-              </ProtectedRoute>
-            } />
+  if (!user) {
+    if (showRegister) {
+      return (
+        <RegisterForm
+          onRegisterSuccess={() => setShowRegister(false)}
+          onSwitchToLogin={() => setShowRegister(false)}
+        />
+      );
+    }
+    return (
+      <LoginForm
+        onLogin={login}
+        onSwitchToRegister={() => setShowRegister(true)}
+      />
+    );
+  }
 
-            {/* Routes Analytics */}
-            <Route path="/performance-analytics" element={
-              <ProtectedRoute>
-                <PerformanceMetrics member={userProfile} timeframe="week" />
-              </ProtectedRoute>
-            } />
-            <Route path="/resource-analytics" element={
-              <ProtectedRoute>
-                <ResourceUtilization members={[]} timeframe="week" />
-              </ProtectedRoute>
-            } />
-            <Route path="/budget-analytics" element={
-              <ProtectedRoute>
-                <BudgetAnalytics />
-              </ProtectedRoute>
-            } />
-            <Route path="/team-analytics" element={
-              <ProtectedRoute>
-                <TeamAnalytics members={[]} timeframe="week" />
-              </ProtectedRoute>
-            } />
-            <Route path="/project-analytics" element={
-              <ProtectedRoute>
-                <ProjectAnalytics project={{}} />
-              </ProtectedRoute>
-            } />
-            <Route path="/ai-analytics" element={
-              <ProtectedRoute>
-                <AIAnalytics insights={[]} />
-              </ProtectedRoute>
-            } />
+  switch (user.role) {
+    case 'admin':
+      return <AdminDashboard onLogout={logout} />;
+    case 'pharmacy':
+      return (
+        <PharmacyDashboard
+          pharmacy={mockPharmacy}
+          requests={mockRequests}
+          onLogout={logout}
+          onConfirmAvailability={(requestId) => {
+            console.log('Confirming availability for request:', requestId);
+          }}
+        />
+      );
+    case 'client':
+      return (
+        <div className="min-h-screen bg-gray-100">
+          <nav className="bg-white shadow-lg mb-8">
+            <div className="max-w-7xl mx-auto px-4 py-4">
+              <div className="flex justify-between items-center">
+                <h1 className="text-xl font-bold text-gray-800">PharmaDispo</h1>
+                <button
+                  onClick={logout}
+                  className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
+                >
+                  Déconnexion
+                </button>
+              </div>
+            </div>
+          </nav>
 
-            {/* Routes Fonctionnalités */}
-            <Route path="/gamification" element={
-              <ProtectedRoute>
-                <GamificationHub />
-              </ProtectedRoute>
-            } />
-            <Route path="/career" element={
-              <ProtectedRoute>
-                <CareerDevelopment />
-              </ProtectedRoute>
-            } />
-            <Route path="/feedback" element={
-              <ProtectedRoute>
-                <FeedbackSystem />
-              </ProtectedRoute>
-            } />
-            <Route path="/wellness" element={
-              <ProtectedRoute>
-                {userProfile && (
-                  <WellnessTracker employeeId={userProfile.uid} surveys={[]} onSubmitSurvey={() => {}} />
-                )}
-              </ProtectedRoute>
-            } />
-            <Route path="/calendar" element={
-              <ProtectedRoute>
-                <Calendar />
-              </ProtectedRoute>
-            } />
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="mb-6 flex space-x-4">
+              <button
+                onClick={() => setClientTab('search')}
+                className={`px-4 py-2 rounded-lg ${
+                  clientTab === 'search' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                }`}
+              >
+                Rechercher
+              </button>
+              <button
+                onClick={() => setClientTab('duty')}
+                className={`px-4 py-2 rounded-lg ${
+                  clientTab === 'duty' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                }`}
+              >
+                Pharmacies de garde
+              </button>
+              <button
+                onClick={() => setClientTab('requests')}
+                className={`px-4 py-2 rounded-lg ${
+                  clientTab === 'requests' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                }`}
+              >
+                Mes Demandes
+              </button>
+              <button
+                onClick={() => setClientTab('notifications')}
+                className={`px-4 py-2 rounded-lg ${
+                  clientTab === 'notifications' ? 'bg-blue-600 text-white' : 'bg-gray-100'
+                }`}
+              >
+                Notifications
+              </button>
+            </div>
 
-            {/* Route des notifications */}
-            <Route path="/notifications" element={
-              <ProtectedRoute>
-                <NotificationsPage />
-              </ProtectedRoute>
-            } />
-
-            {/* Routes Paramètres */}
-            <Route path="/settings/user" element={
-              <ProtectedRoute>
-                <UserSettings />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings/security" element={
-              <ProtectedRoute>
-                <SecuritySettings />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings/users" element={
-              <ProtectedRoute requiredRole="superadmin">
-                <UserManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/invite" element={
-              <ProtectedRoute>
-                <InviteTeam />
-              </ProtectedRoute>
-            } />
-
-            {/* Fallback route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+            <ClientDashboard
+              activeTab={clientTab}
+              selectedMedications={selectedMedications}
+              onMedicationSelect={(medication) => {
+                setSelectedMedications(prev => [...prev, medication]);
+              }}
+              onRequestSubmit={(request) => {
+                console.log('Submitting request:', request);
+                setSelectedMedications([]);
+                setClientTab('requests');
+              }}
+              userId={user.id}
+            />
+          </div>
         </div>
-      </main>
-    </div>
-  );
-};
-
-export default App;
+      );
+    default:
+      return <div>Rôle non reconnu</div>;
+  }
+}

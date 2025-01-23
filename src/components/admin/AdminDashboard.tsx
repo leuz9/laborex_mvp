@@ -3,13 +3,13 @@ import {
   BarChart2, Package, Users, ShoppingBag, Bell, Map, LogOut,
   ClipboardList
 } from 'lucide-react';
-import Overview from './admin/Overview';
-import MedicationManagement from './admin/MedicationManagement';
-import UserManagement from './admin/UserManagement';
-import OrderManagement from './admin/OrderManagement';
-import AlertManagement from './admin/AlertManagement';
-import RequestManagement from './admin/RequestManagement';
-import MapView from './MapView';
+import Overview from './Overview';
+import MedicationManagement from './MedicationManagement';
+import UserManagement from './UserManagement';
+import OrderManagement from './OrderManagement';
+import AlertManagement from './AlertManagement';
+import RequestManagement from './RequestManagement';
+import MapView from '../MapView';
 
 interface Props {
   onLogout: () => void;
