@@ -9,7 +9,7 @@ interface State {
   error: Error | null;
 }
 
-export default class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundary extends Component<Props, State> {
   public state: State = {
     hasError: false,
     error: null
@@ -26,19 +26,24 @@ export default class ErrorBoundary extends Component<Props, State> {
   public render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="max-w-md w-full p-6 bg-white rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-md p-6 max-w-lg w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Oops! Une erreur est survenue
             </h2>
-            <p className="text-gray-600 mb-4">
-              Nous nous excusons pour la gêne occasionnée. Veuillez réessayer plus tard.
+            <p className="text-gray-600 mb-6">
+              Nous sommes désolés, mais quelque chose s'est mal passé. Veuillez réessayer ou contacter le support si le problème persiste.
             </p>
+            <div className="bg-red-50 p-4 rounded-lg mb-6">
+              <p className="text-sm text-red-800 font-mono">
+                {this.state.error?.message}
+              </p>
+            </div>
             <button
-              onClick={() => this.setState({ hasError: false, error: null })}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={() => window.location.reload()}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
             >
-              Réessayer
+              Recharger la page
             </button>
           </div>
         </div>
@@ -48,3 +53,5 @@ export default class ErrorBoundary extends Component<Props, State> {
     return this.props.children;
   }
 }
+
+export default ErrorBoundary;

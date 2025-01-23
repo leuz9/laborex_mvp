@@ -1,30 +1,49 @@
-export interface User {
-  id: string;
-  email: string;
-  name: string;
-  role: 'client' | 'pharmacy' | 'admin';
-  notifications: Notification[];
-}
+// Types existants...
 
-export interface Medication {
-  id: string;
-  name: string;
-  description: string;
-  dosage: string;
-}
-
-export interface Location {
-  latitude: number;
-  longitude: number;
-}
-
-export interface MedicationRequest {
-  id: string;
+export interface GamificationProfile {
   userId: string;
-  medications: Medication[];
-  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed';
-  priority: 'low' | 'medium' | 'high';
-  createdAt: string;
-  location: Location;
-  confirmedPharmacies?: string[]; // IDs des pharmacies ayant confirmé la disponibilité
+  level: number;
+  xp: number;
+  nextLevelXp: number;
+  badges: Badge[];
+  achievements: Achievement[];
+  streak: {
+    current: number;
+    longest: number;
+    lastActive: string;
+  };
+  leaderboard: {
+    position: number;
+    score: number;
+    category: string;
+  }[];
+}
+
+export interface CareerDevelopment {
+  id: string;
+  employeeId: string;
+  goals: {
+    shortTerm: string[];
+    midTerm: string[];
+    longTerm: string[];
+  };
+  skills: {
+    current: string[];
+    desired: string[];
+  };
+  certifications: {
+    completed: {
+      name: string;
+      date: string;
+      issuer: string;
+    }[];
+    planned: {
+      name: string;
+      targetDate: string;
+    }[];
+  };
+  mentorship: {
+    mentor?: string;
+    mentees: string[];
+  };
 }

@@ -1,0 +1,52 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && getUserData().role == 'superadmin';
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (getUserData().role == 'admin' || getUserData().role == 'superadmin');
+    }
+
+    match /avatars/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() &&
+        request.resource.size < 5 * 1024 * 1024 && // 5MB max
+        request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+    
+    match /products/{fileName} {
+      allow read: if true;
+      allow write: if isAuthenticated() &&
+        request.resource.size < 5 * 1024 * 1024 && // 5MB max
+        request.resource.contentType.matches('image/.*');
+      allow delete: if isAdmin();
+    }
+
+    match /documents/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() &&
+        request.resource.size < 10 * 1024 * 1024 && // 10MB max
+        request.resource.contentType.matches('application/.*|text/.*');
+      allow delete: if isAdmin();
+    }
+
+    match /attachments/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() &&
+        request.resource.size < 20 * 1024 * 1024 && // 20MB max
+        request.resource.contentType.matches('image/.*|application/.*|text/.*');
+      allow delete: if isAdmin();
+    }
+  }
+}
