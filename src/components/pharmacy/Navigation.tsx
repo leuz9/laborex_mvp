@@ -1,9 +1,9 @@
 import React from 'react';
-import { Package, CheckCircle, Bell, Map, ShoppingBag, History } from 'lucide-react';
+import { Package, CheckCircle, Bell, Map, ShoppingBag, History, DollarSign, Star } from 'lucide-react';
 
 interface Props {
-  activeTab: 'pending' | 'confirmed' | 'orders' | 'history' | 'notifications';
-  onTabChange: (tab: 'pending' | 'confirmed' | 'orders' | 'history' | 'notifications') => void;
+  activeTab: 'pending' | 'confirmed' | 'orders' | 'history' | 'notifications' | 'finance' | 'ratings';
+  onTabChange: (tab: 'pending' | 'confirmed' | 'orders' | 'history' | 'notifications' | 'finance' | 'ratings') => void;
   unreadNotifications?: number;
 }
 
@@ -12,6 +12,8 @@ export default function Navigation({ activeTab, onTabChange, unreadNotifications
     { id: 'pending', label: 'Demandes', icon: Package },
     { id: 'confirmed', label: 'Confirmées', icon: CheckCircle },
     { id: 'orders', label: 'Commandes', icon: ShoppingBag },
+    { id: 'ratings', label: 'Notes', icon: Star },
+    { id: 'finance', label: 'Finance', icon: DollarSign },
     { id: 'notifications', label: 'Notifications', icon: Bell, badge: unreadNotifications },
     { id: 'history', label: 'Historique', icon: History }
   ];

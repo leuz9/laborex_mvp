@@ -27,7 +27,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if true;  // Permettre la lecture pour l'authentification
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin() || (
+        // Permettre aux pharmacies de recevoir des évaluations
+        isAuthenticated() && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ratings']) &&
+        resource.data.role == 'pharmacy'
+      );
       allow delete: if isAdmin();
     }
 
@@ -59,7 +64,12 @@ service cloud.firestore {
       );
       allow create: if isAuthenticated();
       allow update: if isAuthenticated() && (
-        resource.data.pharmacyId == request.auth.uid ||
+        // Permettre aux clients de mettre à jour leurs commandes (évaluations)
+        (isOwner(resource.data.userId) && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'comment', 'ratedAt'])) ||
+        // Permettre aux pharmacies de mettre à jour le statut des commandes
+        (resource.data.pharmacyId == request.auth.uid && 
+         request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'preparedAt', 'readyAt', 'completedAt'])) ||
         isAdmin()
       );
       allow delete: if isAdmin();

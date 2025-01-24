@@ -15,7 +15,7 @@ export function useNotifications(userId: string) {
     }
 
     try {
-      // Créer la requête avec l'index composite
+      // Create query with composite index
       const notificationsRef = collection(db, 'notifications');
       const q = query(
         notificationsRef,

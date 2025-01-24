@@ -6,6 +6,8 @@ import RequestList from './pharmacy/RequestList';
 import OrderList from './pharmacy/OrderList';
 import HistoryView from './pharmacy/HistoryView';
 import NotificationsView from './pharmacy/NotificationsView';
+import FinanceView from './pharmacy/FinanceView';
+import RatingsView from './pharmacy/RatingsView';
 import { usePharmacyRequests } from '../hooks/usePharmacyRequests';
 import { useNotifications } from '../hooks/useNotifications';
 
@@ -20,7 +22,7 @@ export default function PharmacyDashboard({
   onLogout,
   onOpenSettings
 }: Props) {
-  const [activeTab, setActiveTab] = useState<'pending' | 'confirmed' | 'orders' | 'history' | 'notifications'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'confirmed' | 'orders' | 'history' | 'notifications' | 'finance' | 'ratings'>('pending');
   const { requests, loading, error, confirmAvailability, setUnavailable } = usePharmacyRequests(pharmacy.id);
   const { notifications } = useNotifications(pharmacy.id);
 
@@ -67,6 +69,10 @@ export default function PharmacyDashboard({
           <HistoryView pharmacyId={pharmacy.id} />
         ) : activeTab === 'notifications' ? (
           <NotificationsView pharmacyId={pharmacy.id} />
+        ) : activeTab === 'finance' ? (
+          <FinanceView pharmacyId={pharmacy.id} />
+        ) : activeTab === 'ratings' ? (
+          <RatingsView pharmacyId={pharmacy.id} />
         ) : (
           <RequestList
             requests={requests}

@@ -19,42 +19,50 @@ export function usePharmacyRequests(pharmacyId: string) {
     }
 
     try {
+      const requestsRef = collection(db, 'requests');
       const q = query(
-        collection(db, 'requests'),
+        requestsRef,
         orderBy('createdAt', 'desc')
       );
 
       const unsubscribe = onSnapshot(q, 
         async (snapshot) => {
-          const requestsPromises = snapshot.docs.map(async doc => {
-            const requestData = doc.data() as MedicationRequest;
-            let userData: User | undefined;
+          try {
+            const requestsPromises = snapshot.docs.map(async docSnapshot => {
+              const requestData = docSnapshot.data() as MedicationRequest;
+              let userData: User | undefined;
 
-            // Récupérer les informations de l'utilisateur seulement pour les demandes confirmées
-            if (requestData.status === 'confirmed') {
-              try {
-                const userDoc = await getDoc(doc(db, 'users', requestData.userId));
-                if (userDoc.exists()) {
-                  userData = {
-                    id: userDoc.id,
-                    ...userDoc.data()
-                  } as User;
+              // Récupérer les informations de l'utilisateur seulement pour les demandes confirmées
+              if (requestData.status === 'confirmed') {
+                try {
+                  const userRef = doc(db, 'users', requestData.userId);
+                  const userSnapshot = await getDoc(userRef);
+                  if (userSnapshot.exists()) {
+                    userData = {
+                      id: userSnapshot.id,
+                      ...userSnapshot.data()
+                    } as User;
+                  }
+                } catch (error) {
+                  console.error('Error fetching user data:', error);
                 }
-              } catch (error) {
-                console.error('Error fetching user data:', error);
               }
-            }
 
-            return {
-              id: doc.id,
-              ...requestData,
-              user: userData
-            };
-          });
+              return {
+                id: docSnapshot.id,
+                ...requestData,
+                user: userData
+              };
+            });
 
-          const requestsWithUsers = await Promise.all(requestsPromises);
-          setRequests(requestsWithUsers);
-          setLoading(false);
+            const requestsWithUsers = await Promise.all(requestsPromises);
+            setRequests(requestsWithUsers);
+            setLoading(false);
+          } catch (error) {
+            console.error('Error processing requests:', error);
+            setError('Erreur lors du traitement des demandes');
+            setLoading(false);
+          }
         },
         (err) => {
           console.error('Error fetching requests:', err);
@@ -72,42 +80,36 @@ export function usePharmacyRequests(pharmacyId: string) {
   }, [pharmacyId]);
 
   const confirmAvailability = async (requestId: string): Promise<boolean> => {
-    console.log('Starting confirmAvailability for request:', requestId);
     try {
       // 1. Récupérer les informations de la demande
       const requestRef = doc(db, 'requests', requestId);
-      const requestDoc = await getDoc(requestRef);
-      if (!requestDoc.exists()) {
-        console.error('Request not found:', requestId);
+      const requestSnapshot = await getDoc(requestRef);
+      
+      if (!requestSnapshot.exists()) {
         throw new Error('Demande non trouvée');
       }
 
-      const requestData = requestDoc.data() as MedicationRequest;
-      console.log('Request data:', requestData);
+      const requestData = requestSnapshot.data() as MedicationRequest;
 
       // 2. Récupérer les informations de la pharmacie
       const pharmacyRef = doc(db, 'users', pharmacyId);
-      const pharmacyDoc = await getDoc(pharmacyRef);
-      if (!pharmacyDoc.exists()) {
-        console.error('Pharmacy not found:', pharmacyId);
+      const pharmacySnapshot = await getDoc(pharmacyRef);
+      
+      if (!pharmacySnapshot.exists()) {
         throw new Error('Pharmacie non trouvée');
       }
 
-      const pharmacyData = pharmacyDoc.data();
-      console.log('Pharmacy data:', pharmacyData);
+      const pharmacyData = pharmacySnapshot.data();
 
       // 3. Mettre à jour le statut de la demande
-      console.log('Updating request status...');
       await updateDoc(requestRef, {
         status: 'confirmed',
         confirmedPharmacies: arrayUnion(pharmacyId),
         updatedAt: new Date().toISOString()
       });
-      console.log('Request status updated successfully');
 
       // 4. Créer une notification pour le client
-      console.log('Creating notification for user:', requestData.userId);
-      const notificationRef = await addDoc(collection(db, 'notifications'), {
+      await addDoc(collection(db, 'notifications'), {
         userId: requestData.userId,
         title: 'Médicaments disponibles',
         message: `La pharmacie ${pharmacyData.name} a confirmé la disponibilité de vos médicaments`,
@@ -117,7 +119,6 @@ export function usePharmacyRequests(pharmacyId: string) {
         pharmacyId: pharmacyId,
         createdAt: new Date().toISOString()
       });
-      console.log('Notification created successfully:', notificationRef.id);
 
       return true;
     } catch (error) {
@@ -127,7 +128,6 @@ export function usePharmacyRequests(pharmacyId: string) {
   };
 
   const setUnavailable = async (requestId: string, restockDate: string): Promise<boolean> => {
-    console.log('Setting medication unavailable:', { requestId, restockDate });
     try {
       const requestRef = doc(db, 'requests', requestId);
       await updateDoc(requestRef, {
@@ -136,7 +136,6 @@ export function usePharmacyRequests(pharmacyId: string) {
           updatedAt: new Date().toISOString()
         }
       });
-      console.log('Medication marked as unavailable successfully');
       return true;
     } catch (error) {
       console.error('Error setting unavailable:', error);

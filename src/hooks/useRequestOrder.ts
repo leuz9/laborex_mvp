@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import type { MedicationRequest, Medication } from '../types';
 import { useAuth } from './useAuth';
 import { useOrders } from './useOrders';
 
-export function useRequestOrder(request: MedicationRequest, onClose: () => void) {
+export function useRequestOrder(request: MedicationRequest) {
   const { user: currentUser } = useAuth();
   const { createOrder } = useOrders();
   const [orderLoading, setOrderLoading] = useState<string | null>(null);
@@ -12,7 +12,7 @@ export function useRequestOrder(request: MedicationRequest, onClose: () => void)
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
   const [selectedMedications, setSelectedMedications] = useState<Medication[]>([]);
 
-  const handleOrder = async (pharmacyId: string, medication: Medication) => {
+  const handleOrder = useCallback(async (pharmacyId: string, medication: Medication) => {
     if (!currentUser) return;
 
     // Vérifier si la pharmacie a d'autres médicaments disponibles
@@ -29,47 +29,48 @@ export function useRequestOrder(request: MedicationRequest, onClose: () => void)
       // Commander directement si un seul médicament disponible
       await processOrder(pharmacyId, [medication]);
     }
-  };
+  }, [currentUser, request.medications, request.confirmedPharmacies]);
 
-  const processOrder = async (pharmacyId: string, medications: Medication[]) => {
+  const processOrder = useCallback(async (pharmacyId: string, medications: Medication[]) => {
     if (!currentUser) return;
     
     setOrderLoading(pharmacyId);
     setOrderError(null);
 
     try {
-      const success = await createOrder(
+      const result = await createOrder(
         currentUser.id,
         pharmacyId,
         medications,
         request.id
       );
 
-      if (success) {
-        onClose();
-      } else {
+      if (!result.success) {
         setOrderError('Erreur lors de la création de la commande');
       }
+
+      return result;
     } catch (error) {
       console.error('Error placing order:', error);
       setOrderError('Une erreur est survenue');
+      return { success: false };
     } finally {
       setOrderLoading(null);
       setShowGroupOrderModal(false);
     }
-  };
+  }, [currentUser, createOrder, request.id]);
 
-  const handleGroupOrder = (medications: Medication[]) => {
+  const handleGroupOrder = useCallback((medications: Medication[]) => {
     if (selectedPharmacy) {
       processOrder(selectedPharmacy, medications);
     }
-  };
+  }, [selectedPharmacy, processOrder]);
 
-  const closeGroupOrderModal = () => {
+  const closeGroupOrderModal = useCallback(() => {
     setShowGroupOrderModal(false);
     setSelectedPharmacy(null);
     setSelectedMedications([]);
-  };
+  }, []);
 
   return {
     showGroupOrderModal,

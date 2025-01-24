@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
-import { X, Package, Clock, MapPin, AlertTriangle, UserIcon, Phone, Store, ShoppingBag, Loader2, Check } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { X, Package, Clock, MapPin, AlertTriangle, UserIcon, Phone, Store, ShoppingBag, Loader2 } from 'lucide-react';
 import type { MedicationRequest, Medication } from '../types';
 import { useRequestDetails } from '../hooks/useRequestDetails';
 import { useConfirmedPharmacies } from '../hooks/useConfirmedPharmacies';
 import { useOrders } from '../hooks/useOrders';
 import { useAuth } from '../hooks/useAuth';
+import OrderConfirmationModal from './OrderConfirmationModal';
 
 interface Props {
   request: MedicationRequest;
@@ -14,144 +15,91 @@ interface Props {
 
 export default function RequestDetailsPopup({ request, isPharmacyView = false, onClose }: Props) {
   const { user: currentUser } = useAuth();
-  const { user, loading: userLoading, error: userError } = useRequestDetails(request.userId);
+  const { user, loading: userLoading } = useRequestDetails(request.userId);
   const { pharmacies, loading: pharmaciesLoading } = useConfirmedPharmacies(request.confirmedPharmacies);
   const { createOrder } = useOrders();
   const [orderLoading, setOrderLoading] = useState<string | null>(null);
   const [orderError, setOrderError] = useState<string | null>(null);
-  const [showGroupOrderModal, setShowGroupOrderModal] = useState(false);
-  const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
-  const [selectedMedications, setSelectedMedications] = useState<Medication[]>([]);
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [selectedPharmacy, setSelectedPharmacy] = useState<{
+    id: string;
+    name: string;
+    medications: Medication[];
+  } | null>(null);
 
-  // Grouper les médicaments par pharmacie
-  const medicationsByPharmacy = pharmacies.reduce((acc, pharmacy) => {
-    const availableMedications = request.medications.filter(med => 
-      request.confirmedPharmacies?.includes(pharmacy.id)
-    );
-    if (availableMedications.length > 0) {
-      acc[pharmacy.id] = availableMedications;
-    }
-    return acc;
-  }, {} as Record<string, Medication[]>);
+  // Mémoriser les médicaments disponibles par pharmacie
+  const medicationsByPharmacy = useMemo(() => {
+    return pharmacies.reduce((acc, pharmacy) => {
+      const availableMedications = request.medications.filter(med => 
+        request.confirmedPharmacies?.includes(pharmacy.id)
+      );
+      if (availableMedications.length > 0) {
+        acc[pharmacy.id] = availableMedications;
+      }
+      return acc;
+    }, {} as Record<string, Medication[]>);
+  }, [pharmacies, request.medications, request.confirmedPharmacies]);
 
-  const handleOrder = async (pharmacyId: string, medication: Medication) => {
+  const handleOrder = useCallback(async (pharmacyId: string, medication: Medication) => {
     if (!currentUser) return;
+
+    const pharmacy = pharmacies.find(p => p.id === pharmacyId);
+    if (!pharmacy) return;
 
     // Vérifier si la pharmacie a d'autres médicaments disponibles
     const pharmacyMedications = medicationsByPharmacy[pharmacyId] || [];
-    const otherMedications = pharmacyMedications.filter(med => med.id !== medication.id);
 
-    if (otherMedications.length > 0) {
-      setSelectedPharmacy(pharmacyId);
-      setSelectedMedications([medication]);
-      setShowGroupOrderModal(true);
-    } else {
-      // Commander directement si un seul médicament disponible
-      await processOrder(pharmacyId, [medication]);
-    }
-  };
+    setSelectedPharmacy({
+      id: pharmacyId,
+      name: pharmacy.name,
+      medications: [medication, ...pharmacyMedications.filter(med => med.id !== medication.id)]
+    });
+    setShowConfirmationModal(true);
+  }, [currentUser, pharmacies, medicationsByPharmacy]);
 
-  const processOrder = async (pharmacyId: string, medications: Medication[]) => {
-    if (!currentUser) return;
+  const handleConfirmOrder = async (pharmacyId: string, medications: Medication[]) => {
+    if (!currentUser) return { success: false };
     
     setOrderLoading(pharmacyId);
     setOrderError(null);
 
     try {
-      const success = await createOrder(
+      const result = await createOrder(
         currentUser.id,
         pharmacyId,
         medications,
         request.id
       );
 
-      if (success) {
-        onClose();
-      } else {
+      if (!result.success) {
         setOrderError('Erreur lors de la création de la commande');
       }
+
+      return result;
     } catch (error) {
       console.error('Error placing order:', error);
       setOrderError('Une erreur est survenue');
+      return { success: false };
     } finally {
       setOrderLoading(null);
-      setShowGroupOrderModal(false);
     }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      {/* Modal de commande groupée */}
-      {showGroupOrderModal && selectedPharmacy && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold mb-4">Commander plusieurs médicaments</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Cette pharmacie dispose également d'autres médicaments de votre demande. 
-              Souhaitez-vous les inclure dans votre commande ?
-            </p>
-            <div className="space-y-3 mb-6">
-              {medicationsByPharmacy[selectedPharmacy].map(med => {
-                const isSelected = selectedMedications.some(m => m.id === med.id);
-                return (
-                  <label
-                    key={med.id}
-                    className="flex items-center space-x-3 p-3 rounded-lg bg-gray-50 cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => {
-                        if (isSelected) {
-                          setSelectedMedications(prev => prev.filter(m => m.id !== med.id));
-                        } else {
-                          setSelectedMedications(prev => [...prev, med]);
-                        }
-                      }}
-                      className="form-checkbox h-5 w-5 text-blue-600"
-                    />
-                    <div>
-                      <p className="font-medium">{med.name}</p>
-                      <p className="text-sm text-gray-600">{med.dosage}</p>
-                      <p className="text-sm text-gray-500">{med.price} FCFA</p>
-                    </div>
-                  </label>
-                );
-              })}
-            </div>
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowGroupOrderModal(false);
-                  setSelectedPharmacy(null);
-                  setSelectedMedications([]);
-                }}
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => processOrder(selectedPharmacy, selectedMedications)}
-                disabled={selectedMedications.length === 0 || orderLoading === selectedPharmacy}
-                className={`flex items-center px-4 py-2 rounded-lg text-white ${
-                  orderLoading === selectedPharmacy
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {orderLoading === selectedPharmacy ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <ShoppingBag className="w-4 h-4 mr-2" />
-                )}
-                Commander {selectedMedications.length} médicament{selectedMedications.length > 1 ? 's' : ''}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showConfirmationModal && selectedPharmacy && (
+        <OrderConfirmationModal
+          pharmacyId={selectedPharmacy.id}
+          pharmacyName={selectedPharmacy.name}
+          medications={selectedPharmacy.medications}
+          onConfirm={handleConfirmOrder}
+          onClose={() => {
+            setShowConfirmationModal(false);
+            setSelectedPharmacy(null);
+          }}
+        />
       )}
 
-      {/* Contenu principal */}
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-start mb-6">
@@ -193,8 +141,8 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
               </span>
             </div>
 
-            {/* Informations sur le demandeur (visible uniquement pour les pharmacies) */}
-            {isPharmacyView && user && (
+            {/* Informations sur le demandeur */}
+            {isPharmacyView && user && !userLoading && (
               <div className="border-b pb-4">
                 <h3 className="text-lg font-medium mb-3 flex items-center">
                   <UserIcon className="mr-2" size={20} />
@@ -211,7 +159,7 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
               </div>
             )}
 
-            {/* Liste des médicaments avec leurs pharmacies disponibles */}
+            {/* Liste des médicaments */}
             <div className="border-b pb-4">
               <h3 className="text-lg font-medium mb-3 flex items-center">
                 <Package className="mr-2" size={20} />

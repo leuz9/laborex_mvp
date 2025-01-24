@@ -13,12 +13,16 @@ export function useRequestDetails(userId: string) {
 
     const fetchUserDetails = async () => {
       if (!userId) {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          setError('ID utilisateur non fourni');
+        }
         return;
       }
 
       try {
-        const userDoc = await getDoc(doc(db, 'users', userId));
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userRef);
         
         if (!mounted) return;
 
@@ -26,19 +30,23 @@ export function useRequestDetails(userId: string) {
           const userData = userDoc.data();
           setUser({
             id: userDoc.id,
-            email: userData.email,
-            name: userData.name,
-            role: userData.role,
-            phone: userData.phone,
+            email: userData.email || '',
+            name: userData.name || '',
+            role: userData.role || 'client',
+            phone: userData.phone || '',
             notifications: userData.notifications || []
           });
+          setError(null);
         } else {
+          setUser(null);
           setError('Utilisateur non trouvé');
         }
       } catch (err) {
-        if (!mounted) return;
         console.error('Error fetching user data:', err);
-        setError('Erreur lors de la récupération des données utilisateur');
+        if (mounted) {
+          setUser(null);
+          setError('Erreur lors de la récupération des données utilisateur');
+        }
       } finally {
         if (mounted) {
           setLoading(false);
