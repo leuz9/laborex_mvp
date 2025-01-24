@@ -109,20 +109,6 @@ export default function SearchMedication({ onMedicationSelect }: Props) {
                       </span>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className="font-medium text-gray-900">
-                      {medication.price} FCFA
-                    </span>
-                    <div className="mt-1">
-                      <span className={`text-sm px-2 py-1 rounded-full ${
-                        medication.stock > 10 ? 'bg-green-100 text-green-800' :
-                        medication.stock > 0 ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
-                        {medication.stock > 0 ? `${medication.stock} en stock` : 'Rupture de stock'}
-                      </span>
-                    </div>
-                  </div>
                 </div>
               </div>
             ))

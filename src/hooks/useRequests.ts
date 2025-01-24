@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, orderBy, onSnapshot, addDoc, doc, updateDoc, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { MedicationRequest } from '../types';
+import { createPharmacyNotification } from './usePharmacyNotifications';
 
 export function useRequests(userId: string) {
   const [requests, setRequests] = useState<MedicationRequest[]>([]);
@@ -21,8 +22,7 @@ export function useRequests(userId: string) {
         orderBy('createdAt', 'desc')
       );
 
-      const unsubscribe = onSnapshot(
-        q, 
+      const unsubscribe = onSnapshot(q, 
         (snapshot) => {
           const newRequests = snapshot.docs.map(doc => ({
             id: doc.id,
@@ -48,12 +48,34 @@ export function useRequests(userId: string) {
 
   const createRequest = async (request: Omit<MedicationRequest, 'id' | 'createdAt'>) => {
     try {
+      // 1. Créer la demande
       const requestData = {
         ...request,
         createdAt: new Date().toISOString(),
         status: 'pending'
       };
-      await addDoc(collection(db, 'requests'), requestData);
+      const docRef = await addDoc(collection(db, 'requests'), requestData);
+
+      // 2. Récupérer toutes les pharmacies
+      const pharmaciesSnapshot = await getDocs(collection(db, 'users'));
+      const pharmacies = pharmaciesSnapshot.docs
+        .filter(doc => doc.data().role === 'pharmacy')
+        .map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // 3. Créer une notification pour chaque pharmacie
+      const notificationPromises = pharmacies.map(pharmacy => 
+        createPharmacyNotification(pharmacy.id, {
+          userId: pharmacy.id,
+          title: 'Nouvelle demande de médicaments',
+          message: `Un client recherche ${request.medications.map(m => m.name).join(', ')}`,
+          read: false,
+          type: 'new_request',
+          requestId: docRef.id
+        })
+      );
+
+      await Promise.all(notificationPromises);
+
       return true;
     } catch (error) {
       console.error('Error creating request:', error);

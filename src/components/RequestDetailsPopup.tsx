@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
-import { X, Package, Clock, MapPin, AlertTriangle, UserIcon, Phone, Store, Navigation2, Check } from 'lucide-react';
-import type { MedicationRequest, User, Medication } from '../types';
-import { mockUsers, mockPharmacies } from '../mockData';
+import { X, Package, Clock, MapPin, AlertTriangle, UserIcon, Phone, Store, ShoppingBag, Loader2, Check } from 'lucide-react';
+import type { MedicationRequest, Medication } from '../types';
+import { useRequestDetails } from '../hooks/useRequestDetails';
+import { useConfirmedPharmacies } from '../hooks/useConfirmedPharmacies';
+import { useOrders } from '../hooks/useOrders';
+import { useAuth } from '../hooks/useAuth';
 
 interface Props {
   request: MedicationRequest;
@@ -9,80 +12,87 @@ interface Props {
   onClose: () => void;
 }
 
-// Fonction pour calculer la distance entre deux points (formule de Haversine)
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Rayon de la Terre en km
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
-
 export default function RequestDetailsPopup({ request, isPharmacyView = false, onClose }: Props) {
+  const { user: currentUser } = useAuth();
+  const { user, loading: userLoading, error: userError } = useRequestDetails(request.userId);
+  const { pharmacies, loading: pharmaciesLoading } = useConfirmedPharmacies(request.confirmedPharmacies);
+  const { createOrder } = useOrders();
+  const [orderLoading, setOrderLoading] = useState<string | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [showGroupOrderModal, setShowGroupOrderModal] = useState(false);
   const [selectedPharmacy, setSelectedPharmacy] = useState<string | null>(null);
-  const [showOrderModal, setShowOrderModal] = useState(false);
   const [selectedMedications, setSelectedMedications] = useState<Medication[]>([]);
 
-  const user = mockUsers.find(u => u.id === request.userId) as User;
-  const confirmedPharmacies = request.confirmedPharmacies 
-    ? mockPharmacies.filter(p => request.confirmedPharmacies?.includes(p.id))
-    : [];
-
-  // Grouper les pharmacies par médicament
-  const pharmaciesByMedication = request.medications.reduce((acc, med) => {
-    acc[med.id] = confirmedPharmacies.filter(pharmacy => {
-      return request.confirmedPharmacies?.includes(pharmacy.id);
-    });
-    return acc;
-  }, {} as Record<string, typeof confirmedPharmacies>);
-
-  const handleOrder = (pharmacyId: string, medication: Medication) => {
-    const pharmacy = mockPharmacies.find(p => p.id === pharmacyId);
-    if (!pharmacy) return;
-
-    // Vérifier si d'autres médicaments sont disponibles dans cette pharmacie
-    const otherAvailableMedications = request.medications.filter(med => 
-      med.id !== medication.id && pharmaciesByMedication[med.id]?.some(p => p.id === pharmacyId)
+  // Grouper les médicaments par pharmacie
+  const medicationsByPharmacy = pharmacies.reduce((acc, pharmacy) => {
+    const availableMedications = request.medications.filter(med => 
+      request.confirmedPharmacies?.includes(pharmacy.id)
     );
+    if (availableMedications.length > 0) {
+      acc[pharmacy.id] = availableMedications;
+    }
+    return acc;
+  }, {} as Record<string, Medication[]>);
 
-    if (otherAvailableMedications.length > 0) {
+  const handleOrder = async (pharmacyId: string, medication: Medication) => {
+    if (!currentUser) return;
+
+    // Vérifier si la pharmacie a d'autres médicaments disponibles
+    const pharmacyMedications = medicationsByPharmacy[pharmacyId] || [];
+    const otherMedications = pharmacyMedications.filter(med => med.id !== medication.id);
+
+    if (otherMedications.length > 0) {
       setSelectedPharmacy(pharmacyId);
       setSelectedMedications([medication]);
-      setShowOrderModal(true);
+      setShowGroupOrderModal(true);
     } else {
-      // Si pas d'autres médicaments disponibles, commander directement
-      console.log('Commander auprès de la pharmacie:', pharmacyId, 'médicaments:', [medication]);
+      // Commander directement si un seul médicament disponible
+      await processOrder(pharmacyId, [medication]);
     }
   };
 
-  const handleConfirmOrder = () => {
-    if (!selectedPharmacy) return;
-    console.log('Commander auprès de la pharmacie:', selectedPharmacy, 'médicaments:', selectedMedications);
-    setShowOrderModal(false);
-    setSelectedPharmacy(null);
-    setSelectedMedications([]);
+  const processOrder = async (pharmacyId: string, medications: Medication[]) => {
+    if (!currentUser) return;
+    
+    setOrderLoading(pharmacyId);
+    setOrderError(null);
+
+    try {
+      const success = await createOrder(
+        currentUser.id,
+        pharmacyId,
+        medications,
+        request.id
+      );
+
+      if (success) {
+        onClose();
+      } else {
+        setOrderError('Erreur lors de la création de la commande');
+      }
+    } catch (error) {
+      console.error('Error placing order:', error);
+      setOrderError('Une erreur est survenue');
+    } finally {
+      setOrderLoading(null);
+      setShowGroupOrderModal(false);
+    }
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      {showOrderModal && selectedPharmacy && (
+      {/* Modal de commande groupée */}
+      {showGroupOrderModal && selectedPharmacy && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 p-6">
             <h3 className="text-lg font-semibold mb-4">Commander plusieurs médicaments</h3>
             <p className="text-sm text-gray-600 mb-4">
               Cette pharmacie dispose également d'autres médicaments de votre demande. 
               Souhaitez-vous les inclure dans votre commande ?
             </p>
             <div className="space-y-3 mb-6">
-              {request.medications.map(med => {
-                const isAvailable = pharmaciesByMedication[med.id]?.some(p => p.id === selectedPharmacy);
+              {medicationsByPharmacy[selectedPharmacy].map(med => {
                 const isSelected = selectedMedications.some(m => m.id === med.id);
-                if (!isAvailable) return null;
-
                 return (
                   <label
                     key={med.id}
@@ -103,6 +113,7 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
                     <div>
                       <p className="font-medium">{med.name}</p>
                       <p className="text-sm text-gray-600">{med.dosage}</p>
+                      <p className="text-sm text-gray-500">{med.price} FCFA</p>
                     </div>
                   </label>
                 );
@@ -111,7 +122,7 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => {
-                  setShowOrderModal(false);
+                  setShowGroupOrderModal(false);
                   setSelectedPharmacy(null);
                   setSelectedMedications([]);
                 }}
@@ -120,16 +131,27 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
                 Annuler
               </button>
               <button
-                onClick={handleConfirmOrder}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                onClick={() => processOrder(selectedPharmacy, selectedMedications)}
+                disabled={selectedMedications.length === 0 || orderLoading === selectedPharmacy}
+                className={`flex items-center px-4 py-2 rounded-lg text-white ${
+                  orderLoading === selectedPharmacy
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                Confirmer la commande
+                {orderLoading === selectedPharmacy ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <ShoppingBag className="w-4 h-4 mr-2" />
+                )}
+                Commander {selectedMedications.length} médicament{selectedMedications.length > 1 ? 's' : ''}
               </button>
             </div>
           </div>
         </div>
       )}
 
+      {/* Contenu principal */}
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-start mb-6">
@@ -172,7 +194,7 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
             </div>
 
             {/* Informations sur le demandeur (visible uniquement pour les pharmacies) */}
-            {isPharmacyView && (
+            {isPharmacyView && user && (
               <div className="border-b pb-4">
                 <h3 className="text-lg font-medium mb-3 flex items-center">
                   <UserIcon className="mr-2" size={20} />
@@ -183,7 +205,7 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
                   <p className="text-gray-600">{user.email}</p>
                   <p className="text-gray-600 flex items-center">
                     <Phone className="mr-2" size={16} />
-                    +221 77 XXX XX XX
+                    {user.phone || 'Non renseigné'}
                   </p>
                 </div>
               </div>
@@ -204,50 +226,49 @@ export default function RequestDetailsPopup({ request, isPharmacyView = false, o
                       <p className="text-sm text-gray-500">{med.description}</p>
                     </div>
 
-                    {request.status === 'confirmed' && pharmaciesByMedication[med.id]?.length > 0 && (
+                    {!isPharmacyView && request.status === 'confirmed' && pharmacies.length > 0 && (
                       <div className="mt-3">
                         <h4 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                           <Store className="w-4 h-4 mr-1" />
                           Pharmacies disponibles
                         </h4>
                         <div className="space-y-2">
-                          {pharmaciesByMedication[med.id].map(pharmacy => {
-                            const distance = calculateDistance(
-                              request.location.latitude,
-                              request.location.longitude,
-                              pharmacy.location.latitude,
-                              pharmacy.location.longitude
-                            );
-
-                            return (
-                              <div key={pharmacy.id} className="bg-green-50 p-3 rounded-md">
-                                <div className="flex justify-between items-start">
-                                  <div>
-                                    <p className="font-medium text-green-800 text-sm">{pharmacy.name}</p>
-                                    <p className="text-xs text-green-700">{pharmacy.address}</p>
-                                    <div className="flex items-center gap-3 mt-1">
-                                      <div className="flex items-center text-green-700">
-                                        <Navigation2 className="w-3 h-3 mr-1" />
-                                        <span className="text-xs">{distance.toFixed(1)} km</span>
-                                      </div>
-                                      {pharmacy.onDuty && (
-                                        <div className="flex items-center text-green-700">
-                                          <Phone className="w-3 h-3 mr-1" />
-                                          <span className="text-xs">{pharmacy.onDuty.phone}</span>
-                                        </div>
-                                      )}
-                                    </div>
+                          {pharmacies.map(pharmacy => (
+                            <div key={pharmacy.id} className="bg-green-50 p-3 rounded-md">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-green-800 text-sm">{pharmacy.name}</p>
+                                  <div className="flex items-center text-green-700 mt-1">
+                                    <Phone className="w-3 h-3 mr-1" />
+                                    <span className="text-xs">
+                                      {pharmacy.phone || 'Numéro non disponible'}
+                                    </span>
                                   </div>
-                                  <button
-                                    onClick={() => handleOrder(pharmacy.id, med)}
-                                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded-md hover:bg-blue-700 transition-colors"
-                                  >
-                                    Commander
-                                  </button>
                                 </div>
+                                <button
+                                  onClick={() => handleOrder(pharmacy.id, med)}
+                                  disabled={!!orderLoading}
+                                  className={`flex items-center px-3 py-1.5 rounded-md transition-colors ${
+                                    orderLoading === pharmacy.id
+                                      ? 'bg-gray-300 cursor-not-allowed'
+                                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                                  }`}
+                                >
+                                  {orderLoading === pharmacy.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <ShoppingBag className="w-4 h-4 mr-1" />
+                                      Commander
+                                    </>
+                                  )}
+                                </button>
                               </div>
-                            );
-                          })}
+                              {orderError && orderLoading === pharmacy.id && (
+                                <p className="text-xs text-red-600 mt-2">{orderError}</p>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}

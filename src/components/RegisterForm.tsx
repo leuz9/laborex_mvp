@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { Lock, Mail, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Lock, Mail, User, AlertCircle, Eye, EyeOff, Phone } from 'lucide-react';
 import AuthLayout from './AuthLayout';
 
 interface Props {
@@ -11,11 +11,14 @@ interface Props {
 }
 
 export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Props) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  const [role, setRole] = useState<'client' | 'pharmacy'>('client');
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    confirmPassword: '',
+    name: '',
+    phone: '',
+    role: 'client' as 'client' | 'pharmacy'
+  });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -25,24 +28,32 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Pro
     e.preventDefault();
     setError('');
 
-    if (password !== confirmPassword) {
+    if (formData.password !== formData.confirmPassword) {
       setError('Les mots de passe ne correspondent pas');
       return;
     }
 
-    if (password.length < 6) {
+    if (formData.password.length < 6) {
       setError('Le mot de passe doit contenir au moins 6 caractères');
+      return;
+    }
+
+    // Validation du numéro de téléphone (format sénégalais)
+    const phoneRegex = /^(\+221|00221)?[76][0-9]{8}$/;
+    if (formData.phone && !phoneRegex.test(formData.phone)) {
+      setError('Format de numéro de téléphone invalide (ex: +221 77 XXX XX XX)');
       return;
     }
 
     try {
       setLoading(true);
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
       
       await setDoc(doc(db, 'users', userCredential.user.uid), {
-        email,
-        name,
-        role,
+        email: formData.email,
+        name: formData.name,
+        phone: formData.phone,
+        role: formData.role,
         createdAt: new Date().toISOString(),
         notifications: []
       });
@@ -92,8 +103,26 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Pro
                 required
                 className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="relative">
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+              Numéro de téléphone
+            </label>
+            <div className="relative">
+              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                id="phone"
+                name="phone"
+                type="tel"
+                className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
+                placeholder="+221 77 XXX XX XX"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </div>
           </div>
@@ -111,8 +140,8 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Pro
                 required
                 className="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 placeholder="votre@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
               />
             </div>
           </div>
@@ -130,8 +159,8 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Pro
                 required
                 className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               />
               <button
                 type="button"
@@ -156,8 +185,8 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Pro
                 required
                 className="block w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
                 placeholder="••••••••"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
               />
               <button
                 type="button"
@@ -176,8 +205,8 @@ export default function RegisterForm({ onRegisterSuccess, onSwitchToLogin }: Pro
             <select
               id="role"
               name="role"
-              value={role}
-              onChange={(e) => setRole(e.target.value as 'client' | 'pharmacy')}
+              value={formData.role}
+              onChange={(e) => setFormData({ ...formData, role: e.target.value as 'client' | 'pharmacy' })}
               className="block w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
             >
               <option value="client">Client</option>

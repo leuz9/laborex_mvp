@@ -4,12 +4,14 @@ import RegisterForm from './components/RegisterForm';
 import AdminDashboard from './components/AdminDashboard';
 import PharmacyDashboard from './components/PharmacyDashboard';
 import ClientDashboard from './components/ClientDashboard';
+import ClientHeader from './components/client/ClientHeader';
+import UserSettings from './components/settings/UserSettings';
 import { useAuth } from './hooks/useAuth';
-import { mockPharmacy, mockRequests } from './mockData';
 
 export default function App() {
   const { user, login, logout, loading } = useAuth();
   const [showRegister, setShowRegister] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedMedications, setSelectedMedications] = useState([]);
   const [clientTab, setClientTab] = useState('search');
 
@@ -38,90 +40,56 @@ export default function App() {
     );
   }
 
-  switch (user.role) {
-    case 'admin':
-      return <AdminDashboard onLogout={logout} />;
-    case 'pharmacy':
-      return (
-        <PharmacyDashboard
-          pharmacy={mockPharmacy}
-          requests={mockRequests}
-          onLogout={logout}
-          onConfirmAvailability={(requestId) => {
-            console.log('Confirming availability for request:', requestId);
-          }}
-        />
-      );
-    case 'client':
-      return (
-        <div className="min-h-screen bg-gray-100">
-          <nav className="bg-white shadow-lg mb-8">
-            <div className="max-w-7xl mx-auto px-4 py-4">
-              <div className="flex justify-between items-center">
-                <h1 className="text-xl font-bold text-gray-800">PharmaDispo</h1>
-                <button
-                  onClick={logout}
-                  className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg"
-                >
-                  Déconnexion
-                </button>
+  return (
+    <>
+      {showSettings && (
+        <UserSettings onClose={() => setShowSettings(false)} />
+      )}
+
+      {(() => {
+        switch (user.role) {
+          case 'admin':
+            return <AdminDashboard onLogout={logout} onOpenSettings={() => setShowSettings(true)} />;
+          case 'pharmacy':
+            return (
+              <PharmacyDashboard
+                pharmacy={user}
+                onLogout={logout}
+                onOpenSettings={() => setShowSettings(true)}
+              />
+            );
+          case 'client':
+            return (
+              <div className="min-h-screen bg-gray-100">
+                <ClientHeader
+                  user={user}
+                  activeTab={clientTab}
+                  onTabChange={setClientTab}
+                  onLogout={logout}
+                  onOpenSettings={() => setShowSettings(true)}
+                />
+
+                <div className="max-w-7xl mx-auto px-4">
+                  <ClientDashboard
+                    activeTab={clientTab}
+                    selectedMedications={selectedMedications}
+                    onMedicationSelect={(medication) => {
+                      setSelectedMedications(prev => [...prev, medication]);
+                    }}
+                    onRequestSubmit={(request) => {
+                      console.log('Submitting request:', request);
+                      setSelectedMedications([]);
+                      setClientTab('requests');
+                    }}
+                    userId={user.id}
+                  />
+                </div>
               </div>
-            </div>
-          </nav>
-
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="mb-6 flex space-x-4">
-              <button
-                onClick={() => setClientTab('search')}
-                className={`px-4 py-2 rounded-lg ${
-                  clientTab === 'search' ? 'bg-blue-600 text-white' : 'bg-gray-100'
-                }`}
-              >
-                Rechercher
-              </button>
-              <button
-                onClick={() => setClientTab('duty')}
-                className={`px-4 py-2 rounded-lg ${
-                  clientTab === 'duty' ? 'bg-blue-600 text-white' : 'bg-gray-100'
-                }`}
-              >
-                Pharmacies de garde
-              </button>
-              <button
-                onClick={() => setClientTab('requests')}
-                className={`px-4 py-2 rounded-lg ${
-                  clientTab === 'requests' ? 'bg-blue-600 text-white' : 'bg-gray-100'
-                }`}
-              >
-                Mes Demandes
-              </button>
-              <button
-                onClick={() => setClientTab('notifications')}
-                className={`px-4 py-2 rounded-lg ${
-                  clientTab === 'notifications' ? 'bg-blue-600 text-white' : 'bg-gray-100'
-                }`}
-              >
-                Notifications
-              </button>
-            </div>
-
-            <ClientDashboard
-              activeTab={clientTab}
-              selectedMedications={selectedMedications}
-              onMedicationSelect={(medication) => {
-                setSelectedMedications(prev => [...prev, medication]);
-              }}
-              onRequestSubmit={(request) => {
-                console.log('Submitting request:', request);
-                setSelectedMedications([]);
-                setClientTab('requests');
-              }}
-              userId={user.id}
-            />
-          </div>
-        </div>
-      );
-    default:
-      return <div>Rôle non reconnu</div>;
-  }
+            );
+          default:
+            return <div>Rôle non reconnu</div>;
+        }
+      })()}
+    </>
+  );
 }

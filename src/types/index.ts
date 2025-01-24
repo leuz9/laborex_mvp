@@ -3,6 +3,7 @@ export interface User {
   email: string;
   name: string;
   role: 'client' | 'pharmacy' | 'admin';
+  phone?: string;
   notifications: Notification[];
 }
 
@@ -23,6 +24,12 @@ export interface Location {
   longitude: number;
 }
 
+export interface MedicationAvailabilityDetails {
+  available: boolean;
+  price?: number;
+  comment?: string;
+}
+
 export interface MedicationRequest {
   id: string;
   userId: string;
@@ -31,17 +38,13 @@ export interface MedicationRequest {
   priority: 'low' | 'medium' | 'high';
   createdAt: string;
   location: Location;
-  confirmedPharmacies?: string[]; // IDs des pharmacies ayant confirmé la disponibilité
-}
-
-export interface Order {
-  id: string;
-  userId: string;
-  pharmacyId: string;
-  medications: Medication[];
-  status: 'pending' | 'paid' | 'preparing' | 'ready' | 'completed';
-  totalAmount: number;
-  createdAt: string;
+  confirmedPharmacies?: string[];
+  availabilityDetails?: {
+    [pharmacyId: string]: {
+      [medicationId: string]: MedicationAvailabilityDetails;
+    };
+  };
+  user?: User;
 }
 
 export interface Notification {
@@ -51,4 +54,6 @@ export interface Notification {
   message: string;
   read: boolean;
   createdAt: string;
+  type?: 'new_request' | 'availability_confirmed' | 'request_ready';
+  requestId?: string;
 }

@@ -78,14 +78,11 @@ export default function RequestsView({ userId }: Props) {
             </div>
             <div className="space-y-2">
               {request.medications.map(med => (
-                <div key={med.id} className="flex items-center justify-between">
+                <div key={med.id} className="flex items-center">
                   <div>
                     <span className="font-medium">{med.name}</span>
                     <span className="text-gray-500 ml-2">- {med.dosage}</span>
                   </div>
-                  <span className="text-gray-900 font-medium">
-                    {med.price} FCFA
-                  </span>
                 </div>
               ))}
             </div>
