@@ -9,34 +9,57 @@ export function usePharmacyRatings(pharmacyId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pharmacyId) {
-      setLoading(false);
-      return;
-    }
+    let unsubscribe: (() => void) | undefined;
+    let mounted = true;
 
-    try {
-      const unsubscribe = onSnapshot(
-        doc(db, 'users', pharmacyId),
-        (doc) => {
-          if (doc.exists()) {
-            const userData = doc.data() as User;
-            setRatings(userData.ratings || []);
-            setLoading(false);
-          }
-        },
-        (err) => {
-          console.error('Error fetching ratings:', err);
-          setError('Erreur lors du chargement des notes');
+    const setupListener = async () => {
+      if (!pharmacyId) {
+        if (mounted) {
           setLoading(false);
         }
-      );
+        return;
+      }
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up ratings listener:', error);
-      setError('Erreur lors de la configuration du listener');
-      setLoading(false);
-    }
+      try {
+        const docRef = doc(db, 'users', pharmacyId);
+        unsubscribe = onSnapshot(
+          docRef,
+          (docSnapshot) => {
+            if (!mounted) return;
+
+            if (docSnapshot.exists()) {
+              const userData = docSnapshot.data() as User;
+              setRatings(userData.ratings?.sort((a, b) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              ) || []);
+            }
+            setLoading(false);
+          },
+          (err) => {
+            console.error('Error fetching ratings:', err);
+            if (mounted) {
+              setError('Erreur lors du chargement des notes');
+              setLoading(false);
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error setting up ratings listener:', error);
+        if (mounted) {
+          setError('Erreur lors de la configuration du listener');
+          setLoading(false);
+        }
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [pharmacyId]);
 
   const averageRating = ratings.length > 0

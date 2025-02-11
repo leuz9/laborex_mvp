@@ -14,7 +14,7 @@ export default function PaymentModal({ orderId, amount, onClose, onSuccess }: Pr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const { markOrderAsPaid, updateOrderStatus } = useOrders();
+  const { markOrderAsPaid } = useOrders();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,21 +22,13 @@ export default function PaymentModal({ orderId, amount, onClose, onSuccess }: Pr
     setError(null);
 
     try {
-      // 1. Marquer la commande comme payée
-      const paymentSuccess = await markOrderAsPaid(orderId, paymentMethod);
+      const success = await markOrderAsPaid(orderId, paymentMethod);
       
-      if (paymentSuccess) {
-        // 2. Passer automatiquement en préparation
-        const statusSuccess = await updateOrderStatus(orderId, 'preparing');
-        
-        if (statusSuccess) {
-          setShowSuccess(true);
-          setTimeout(() => {
-            onSuccess();
-          }, 2000);
-        } else {
-          setError('La commande a été payée mais une erreur est survenue lors du passage en préparation');
-        }
+      if (success) {
+        setShowSuccess(true);
+        setTimeout(() => {
+          onSuccess();
+        }, 2000);
       } else {
         setError('Une erreur est survenue lors du paiement');
       }

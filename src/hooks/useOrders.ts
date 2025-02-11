@@ -49,88 +49,45 @@ export function useOrders() {
       const orderData = orderDoc.data() as Order;
       const timestamp = new Date().toISOString();
 
-      // Pour le paiement en espèces, on met juste à jour le mode de paiement
-      // Le statut sera mis à jour lors de la livraison
-      if (paymentMethod === 'cash') {
-        await updateDoc(orderRef, {
-          paymentMethod,
-          paymentStatus: 'pending', // Reste en attente jusqu'à la livraison
-          status: 'preparing', // On passe quand même en préparation
+      // Simuler un paiement réussi immédiatement
+      await updateDoc(orderRef, {
+        status: 'paid',
+        paymentStatus: 'completed',
+        paymentMethod,
+        updatedAt: timestamp
+      });
+
+      // Mettre à jour la demande associée
+      if (orderData.requestId) {
+        await updateDoc(doc(db, 'requests', orderData.requestId), {
+          status: 'preparing',
           updatedAt: timestamp
         });
-
-        // Mettre à jour la demande associée
-        if (orderData.requestId) {
-          await updateDoc(doc(db, 'requests', orderData.requestId), {
-            status: 'preparing',
-            updatedAt: timestamp
-          });
-        }
-
-        // Notifications
-        await Promise.all([
-          // Pour la pharmacie
-          addDoc(collection(db, 'notifications'), {
-            userId: orderData.pharmacyId,
-            title: 'Nouvelle commande à préparer',
-            message: 'Une commande avec paiement à la livraison est à préparer',
-            read: false,
-            type: 'order_preparing',
-            orderId,
-            createdAt: timestamp
-          }),
-          // Pour le client
-          addDoc(collection(db, 'notifications'), {
-            userId: orderData.userId,
-            title: 'Commande confirmée',
-            message: 'Votre commande est en cours de préparation. Paiement à effectuer à la livraison.',
-            read: false,
-            type: 'order_preparing',
-            orderId,
-            createdAt: timestamp
-          })
-        ]);
-      } else {
-        // Pour les autres modes de paiement, comportement normal
-        await updateDoc(orderRef, {
-          status: 'paid',
-          paymentStatus: 'completed',
-          paymentMethod,
-          updatedAt: timestamp
-        });
-
-        // Mettre à jour la demande associée
-        if (orderData.requestId) {
-          await updateDoc(doc(db, 'requests', orderData.requestId), {
-            status: 'preparing',
-            updatedAt: timestamp
-          });
-        }
-
-        // Notifications
-        await Promise.all([
-          // Pour la pharmacie
-          addDoc(collection(db, 'notifications'), {
-            userId: orderData.pharmacyId,
-            title: 'Nouvelle commande à préparer',
-            message: 'Une commande a été payée et est prête à être préparée',
-            read: false,
-            type: 'order_paid',
-            orderId,
-            createdAt: timestamp
-          }),
-          // Pour le client
-          addDoc(collection(db, 'notifications'), {
-            userId: orderData.userId,
-            title: 'Paiement confirmé',
-            message: 'Votre paiement a été confirmé. La pharmacie va préparer votre commande.',
-            read: false,
-            type: 'order_paid',
-            orderId,
-            createdAt: timestamp
-          })
-        ]);
       }
+
+      // Notifications
+      await Promise.all([
+        // Pour la pharmacie
+        addDoc(collection(db, 'notifications'), {
+          userId: orderData.pharmacyId,
+          title: 'Nouvelle commande à préparer',
+          message: 'Une commande a été payée et est prête à être préparée',
+          read: false,
+          type: 'order_paid',
+          orderId,
+          createdAt: timestamp
+        }),
+        // Pour le client
+        addDoc(collection(db, 'notifications'), {
+          userId: orderData.userId,
+          title: 'Paiement confirmé',
+          message: 'Votre paiement a été confirmé. La pharmacie va préparer votre commande.',
+          read: false,
+          type: 'order_paid',
+          orderId,
+          createdAt: timestamp
+        })
+      ]);
 
       return true;
     } catch (error) {
@@ -151,17 +108,10 @@ export function useOrders() {
       const orderData = orderDoc.data() as Order;
       const timestamp = new Date().toISOString();
 
-      // Mise à jour spéciale pour les commandes en espèces
       const updateData: Partial<Order> = {
         status: newStatus,
         updatedAt: timestamp
       };
-
-      // Si c'est un paiement en espèces et que la commande est terminée
-      // on met à jour aussi le statut de paiement
-      if (orderData.paymentMethod === 'cash' && newStatus === 'completed') {
-        updateData.paymentStatus = 'completed';
-      }
 
       // Ajouter les horodatages appropriés
       if (newStatus === 'preparing') {
@@ -201,18 +151,14 @@ export function useOrders() {
         await addDoc(collection(db, 'notifications'), {
           ...notificationBase,
           title: 'Commande prête',
-          message: orderData.paymentMethod === 'cash' 
-            ? 'Votre commande est prête. N\'oubliez pas de préparer le paiement en espèces.'
-            : 'Votre commande est prête à être récupérée',
+          message: 'Votre commande est prête à être récupérée',
           type: 'order_ready'
         });
       } else if (newStatus === 'completed') {
         await addDoc(collection(db, 'notifications'), {
           ...notificationBase,
           title: 'Commande terminée',
-          message: orderData.paymentMethod === 'cash'
-            ? 'Votre commande a été livrée et payée avec succès'
-            : 'Votre commande a été récupérée avec succès',
+          message: 'Votre commande a été récupérée avec succès',
           type: 'order_completed'
         });
       }

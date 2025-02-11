@@ -13,70 +13,95 @@ export function usePharmacyOrders(pharmacyId: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pharmacyId) {
-      setLoading(false);
-      return;
-    }
+    let unsubscribe: (() => void) | undefined;
+    let mounted = true;
 
-    try {
-      const ordersRef = collection(db, 'orders');
-      const q = query(
-        ordersRef,
-        where('pharmacyId', '==', pharmacyId)
-      );
-
-      const unsubscribe = onSnapshot(q, 
-        async (snapshot) => {
-          try {
-            const ordersPromises = snapshot.docs.map(async docSnapshot => {
-              const orderData = docSnapshot.data() as Order;
-              let userData: User | undefined;
-
-              try {
-                const userDocRef = doc(db, 'users', orderData.userId);
-                const userDocSnapshot = await getDoc(userDocRef);
-                if (userDocSnapshot.exists()) {
-                  userData = {
-                    id: userDocSnapshot.id,
-                    ...userDocSnapshot.data()
-                  } as User;
-                }
-              } catch (error) {
-                console.error('Error fetching user data:', error);
-              }
-
-              return {
-                id: docSnapshot.id,
-                ...orderData,
-                user: userData
-              };
-            });
-
-            const ordersWithUsers = await Promise.all(ordersPromises);
-            const sortedOrders = ordersWithUsers.sort((a, b) => 
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-            setOrders(sortedOrders);
-            setLoading(false);
-          } catch (error) {
-            console.error('Error processing orders:', error);
-            setError('Erreur lors du traitement des commandes');
-            setLoading(false);
-          }
-        },
-        (err) => {
-          console.error('Error fetching orders:', err);
-          setError('Erreur lors du chargement des commandes');
+    const setupListener = async () => {
+      if (!pharmacyId) {
+        if (mounted) {
           setLoading(false);
         }
-      );
+        return;
+      }
 
-      return () => unsubscribe();
-    } catch (error) {
-      console.error('Error setting up orders listener:', error);
-      setError('Erreur lors de la configuration du listener');
-      setLoading(false);
-    }
+      try {
+        const ordersRef = collection(db, 'orders');
+        const q = query(
+          ordersRef,
+          where('pharmacyId', '==', pharmacyId)
+        );
+
+        unsubscribe = onSnapshot(q, 
+          async (snapshot) => {
+            if (!mounted) return;
+
+            try {
+              const ordersPromises = snapshot.docs.map(async docSnapshot => {
+                const orderData = docSnapshot.data() as Order;
+                let userData: User | undefined;
+
+                try {
+                  const userDocRef = doc(db, 'users', orderData.userId);
+                  const userDocSnapshot = await getDoc(userDocRef);
+                  if (userDocSnapshot.exists()) {
+                    userData = {
+                      id: userDocSnapshot.id,
+                      ...userDocSnapshot.data()
+                    } as User;
+                  }
+                } catch (error) {
+                  console.error('Error fetching user data:', error);
+                }
+
+                return {
+                  id: docSnapshot.id,
+                  ...orderData,
+                  user: userData
+                };
+              });
+
+              const ordersWithUsers = await Promise.all(ordersPromises);
+              const sortedOrders = ordersWithUsers.sort((a, b) => 
+                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              );
+
+              if (mounted) {
+                setOrders(sortedOrders);
+                setLoading(false);
+              }
+            } catch (error) {
+              console.error('Error processing orders:', error);
+              if (mounted) {
+                setError('Erreur lors du traitement des commandes');
+                setLoading(false);
+              }
+            }
+          },
+          (err) => {
+            console.error('Error fetching orders:', err);
+            if (mounted) {
+              setError('Erreur lors du chargement des commandes');
+              setLoading(false);
+            }
+          }
+        );
+      } catch (error) {
+        console.error('Error setting up orders listener:', error);
+        if (mounted) {
+          setError('Erreur lors de la configuration du listener');
+          setLoading(false);
+        }
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      mounted = false;
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, [pharmacyId]);
 
   return { orders, loading, error };
